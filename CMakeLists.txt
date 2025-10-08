@@ -3,13 +3,15 @@ cmake_minimum_required(VERSION 3.28)
 project(vmxcodec LANGUAGES CXX)
 
 # Sources (relative to this CMakeLists.txt)
+
 set(SOURCES
   ../src/vmxcodec_x86.cpp
   ../src/vmxcodec_avx2.cpp
   ../src/vmxcodec.cpp
 )
 
-add_library(vmx SHARED ${SOURCES})
+# Build a static library (.lib on Windows) so it can be linked into another DLL
+add_library(vmx STATIC ${SOURCES})
 
 # Match the reference output name: libvmx.dll on Windows
 set_target_properties(vmx PROPERTIES OUTPUT_NAME "libvmx")
@@ -37,18 +39,14 @@ target_compile_options(vmx PRIVATE
   $<$<CXX_COMPILER_ID:GNU>:-mbmi>
 )
 
-# Linker flag to pass the exports.def on Windows.
-# For clang-cl / clang++ on Windows we forward to the linker with -Wl,/DEF:...
-# For MSVC link the /DEF flag directly.
-if(WIN32)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    target_link_options(vmx PRIVATE "-Wl,/DEF:../exports.def")
-  else()
-    target_link_options(vmx PRIVATE "/DEF:../exports.def")
-  endif()
-endif()
+# Note: a static library does not need an exports.def file or linker export flags.
+# If your code currently uses a VMX_BUILD_DLL macro to control __declspec(dllexport),
+# you may want to add a different macro for static builds or update the headers.
 
 # Optional: set visibility/export macros if needed
-# target_compile_definitions(vmx PRIVATE VMX_BUILD_DLL)
+# When building a static library we define VMX_STATIC so headers can adjust
+# import/export macros (e.g., avoid __declspec(dllimport)). Make it PUBLIC so
+# consumers linking against this target also get the definition.
+target_compile_definitions(vmx PUBLIC VMX_STATIC)
 
 # Note: ensure exports.def exists next to this CMakeLists.txt (or give full path)
